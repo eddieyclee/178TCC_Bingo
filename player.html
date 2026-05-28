@@ -201,7 +201,8 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
   <div class="b-emoji">🎉</div>
   <div class="b-title">BINGO!</div>
   <div class="b-sub">恭喜完成連線！<br>等待主持人宣布最終結果</div>
-  <button class="b-btn" onclick="go('s-game')">繼續看我的卡片</button>
+  <div style="font-size:14px;color:var(--gn);margin-top:-16px;margin-bottom:28px;font-weight:700" id="b-lines"></div>
+  <button class="b-btn" onclick="returnToGame()">繼續看我的卡片</button>
 </div>
 
 <script type="module">
@@ -335,7 +336,7 @@ function listenRoom(){
     if(!me)return;
     if(me.cardReset&&me.cardReset!==window._lastReset){
       window._lastReset=me.cardReset;cfg=data.config||cfg;
-      playerCard=[];gameLoaded=false;lastCalledLen=0;buildFillCard();go('s-fill');return;
+      playerCard=[];gameLoaded=false;lastCalledLen=0;window._lastBingoLines=0;buildFillCard();go('s-fill');return;
     }
     if((data.status==='playing')&&me.card&&me.card.length>0){
       if(!gameLoaded){
@@ -409,28 +410,44 @@ window.confirmGameCell=()=>{
   cell.note=document.getElementById('gm-note').value.trim();
   closeGameModal();
   renderGameGrid();
+  const prevLines=window._lastBingoLines||0;
+  const newLines=countBingoLines();
+  if(newLines>prevLines){
+    window._lastBingoLines=newLines;
+    // Update bingo sub-text with line count
+    const sub=document.getElementById('b-lines');
+    if(sub)sub.textContent=`目前共 ${newLines} 條連線`;
+    setTimeout(()=>go('s-bingo'),400);
+  }
   syncProgress();
-  if(checkBingo())setTimeout(()=>go('s-bingo'),500);
 };
 
 async function syncProgress(){
   const marked=playerCard.filter(c=>c.marked).length;
-  const bingo=checkBingo();
+  const bingo=countBingoLines()>0;
   const cardData=playerCard.map(c=>({r:c.r,c:c.c,num:c.num,note:c.note||"",free:false,marked:c.marked,locked:c.locked||false}));
   await update(ref(db,`rooms/${roomCode}/players/${playerKey}`),{markedCount:marked,bingo,card:cardData});
 }
 
-function checkBingo(){
+window.returnToGame=function(){
+  // Record current line count so we don't re-trigger for same lines
+  window._lastBingoLines=countBingoLines();
+  go('s-game');
+}
+
+function countBingoLines(){
   const sz=cfg.size;
   const g=(r,c)=>playerCard.find(x=>x.r===r&&x.c===c)?.marked||false;
+  let n=0;
   for(let i=0;i<sz;i++){
-    if(Array.from({length:sz},(_,j)=>g(i,j)).every(Boolean))return true;
-    if(Array.from({length:sz},(_,j)=>g(j,i)).every(Boolean))return true;
+    if(Array.from({length:sz},(_,j)=>g(i,j)).every(Boolean))n++;
+    if(Array.from({length:sz},(_,j)=>g(j,i)).every(Boolean))n++;
   }
-  if(Array.from({length:sz},(_,i)=>g(i,i)).every(Boolean))return true;
-  if(Array.from({length:sz},(_,i)=>g(i,sz-1-i)).every(Boolean))return true;
-  return false;
+  if(Array.from({length:sz},(_,i)=>g(i,i)).every(Boolean))n++;
+  if(Array.from({length:sz},(_,i)=>g(i,sz-1-i)).every(Boolean))n++;
+  return n;
 }
+function checkBingo(){return countBingoLines()>0;}
 </script>
 </body>
 </html>
