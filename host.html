@@ -230,7 +230,7 @@ async function step2(){
   const min=+document.getElementById('r-min').value;
   const max=+document.getElementById('r-max').value;
   const sz=cfg.size;
-  const need=sz*sz-(sz===5?1:0);
+  const need=sz*sz;
   if(min<1||max<=min||max-min+1<need){se('e2',`範圍至少需要 ${need} 個數字（目前 ${Math.max(0,max-min+1)} 個）`);return}
   cfg={size:sz,min,max};
   roomCode=Math.random().toString(36).substr(2,4).toUpperCase();
@@ -366,11 +366,11 @@ function countLines(card,gcfg){
 function renderPlayers(players,gcfg){
   const el=id('pgrid');
   if(!players.length){el.innerHTML='<div class="empty">等待玩家掃 QR Code 加入...</div>';return}
-  const sz=gcfg.size,total=sz*sz-(sz===5?1:0);
+  const sz=gcfg.size,total=sz*sz;
   el.innerHTML=players.map(([,p],i)=>{
     const color=PC[i%PC.length];
     const init=(p.name||'?').slice(0,2).toUpperCase();
-    const filled=p.filled||0,marked=p.markedCount||0,ready=filled>=total;
+    const filled=p.filled||0,marked=p.markedCount||0,ready=filled>=total&&filled>0;
     const lines=countLines(p.card,gcfg);
     const pct=Math.round(marked/total*100);
     let badges='';

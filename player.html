@@ -277,8 +277,7 @@ function buildFillCard(){
   const LETTERS=['B','I','N','G','O'];
   playerCard=[];
   for(let r=0;r<size;r++)for(let c=0;c<size;c++){
-    const free=size===5&&r===2&&c===2;
-    playerCard.push({r,c,num:null,marked:free,free});
+    playerCard.push({r,c,num:null,marked:false,free:false});
   }
   const lEl=document.getElementById('f-letters');
   lEl.style.gridTemplateColumns=`repeat(${size},1fr)`;
@@ -289,13 +288,12 @@ function buildFillCard(){
 }
 
 function renderFillGrid(){
-  const total=cfg.size*cfg.size-(cfg.size===5?1:0);
+  const total=cfg.size*cfg.size;
   document.getElementById('f-grid').innerHTML=playerCard.map((cell,i)=>{
-    if(cell.free)return`<div class="cell free"><span class="cnum">FREE</span></div>`;
     const has=cell.num!==null;
     return`<div class="cell${has?' filled':' empty-cell'}" onclick="openModal(${i})"><span class="cnum">${has?cell.num:''}</span></div>`;
   }).join('');
-  const filled=playerCard.filter(c=>!c.free&&c.num!==null).length;
+  const filled=playerCard.filter(c=>c.num!==null).length;
   const pct=Math.round(filled/total*100);
   document.getElementById('fill-prog').style.width=pct+'%';
   document.getElementById('fill-prog-t').textContent=`${filled}/${total}`;
@@ -316,15 +314,15 @@ window.confirmNum=()=>{
   if(editCell===null)return;
   const n=parseInt(document.getElementById('num-inp').value);
   if(isNaN(n)||n<cfg.min||n>cfg.max){alert(`請輸入 ${cfg.min}～${cfg.max} 之間的整數`);return}
-  if(playerCard.some((c,i)=>i!==editCell&&!c.free&&c.num===n)){alert('這個數字已填過，請換一個');return}
+  if(playerCard.some((c,i)=>i!==editCell&&c.num===n)){alert('這個數字已填過，請換一個');return}
   playerCard[editCell].num=n;closeModal();renderFillGrid();
 };
 window.clearNum=()=>{if(editCell===null)return;playerCard[editCell].num=null;closeModal();renderFillGrid()};
 
 window.submitCard=async()=>{
-  const total=cfg.size*cfg.size-(cfg.size===5?1:0);
-  if(playerCard.filter(c=>!c.free&&c.num!==null).length<total){alert('請填完所有格子');return}
-  const cardData=playerCard.map(c=>({r:c.r,c:c.c,num:c.num,free:c.free,marked:c.free}));
+  const total=cfg.size*cfg.size;
+  if(playerCard.filter(c=>c.num!==null).length<total){alert('請填完所有格子');return}
+  const cardData=playerCard.map(c=>({r:c.r,c:c.c,num:c.num,free:false,marked:false}));
   await update(ref(db,`rooms/${roomCode}/players/${playerKey}`),{card:cardData,filled:total,markedCount:0,bingo:false});
   gameLoaded=false;
   go('s-wait');
@@ -369,12 +367,11 @@ function buildGameGrid(){
 }
 
 function renderGameGrid(){
-  const total=cfg.size*cfg.size-(cfg.size===5?1:0);
+  const total=cfg.size*cfg.size;
   document.getElementById('g-grid').innerHTML=playerCard.map((cell,i)=>{
-    if(cell.free)return`<div class="cell free"><span class="cnum">FREE</span></div>`;
     return`<div class="cell${cell.marked?' marked':''}" onclick="toggleMark(${i})"><span class="cnum">${cell.num||''}</span></div>`;
   }).join('');
-  const marked=playerCard.filter(c=>c.marked&&!c.free).length;
+  const marked=playerCard.filter(c=>c.marked).length;
   const pct=Math.round(marked/total*100);
   document.getElementById('g-prog').style.width=pct+'%';
   document.getElementById('g-prog-t').textContent=`${marked}/${total}`;
@@ -397,15 +394,15 @@ function showLatestNum(n){
 }
 
 window.toggleMark=idx=>{
-  const cell=playerCard[idx];if(!cell||cell.free)return;
+  const cell=playerCard[idx];if(!cell)return;
   cell.marked=!cell.marked;renderGameGrid();syncProgress();
   if(cell.marked&&checkBingo())setTimeout(()=>go('s-bingo'),400);
 };
 
 async function syncProgress(){
-  const marked=playerCard.filter(c=>c.marked&&!c.free).length;
+  const marked=playerCard.filter(c=>c.marked).length;
   const bingo=checkBingo();
-  const cardData=playerCard.map(c=>({r:c.r,c:c.c,num:c.num,free:c.free,marked:c.marked}));
+  const cardData=playerCard.map(c=>({r:c.r,c:c.c,num:c.num,free:false,marked:c.marked}));
   await update(ref(db,`rooms/${roomCode}/players/${playerKey}`),{markedCount:marked,bingo,card:cardData});
 }
 
