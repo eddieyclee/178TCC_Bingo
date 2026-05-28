@@ -405,7 +405,8 @@ window.toggleMark=idx=>{
 async function syncProgress(){
   const marked=playerCard.filter(c=>c.marked&&!c.free).length;
   const bingo=checkBingo();
-  await update(ref(db,`rooms/${roomCode}/players/${playerKey}`),{markedCount:marked,bingo});
+  const cardData=playerCard.map(c=>({r:c.r,c:c.c,num:c.num,free:c.free,marked:c.marked}));
+  await update(ref(db,`rooms/${roomCode}/players/${playerKey}`),{markedCount:marked,bingo,card:cardData});
 }
 
 function renderCalledHistory(called){
