@@ -1,0 +1,419 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>178 TCC Bingo 主持人</title>
+<script type="module">
+  import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+  import{getDatabase,ref,set,get,onValue}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  window._fb={initializeApp,getDatabase,ref,set,get,onValue};
+</script>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
+:root{--bg:#0a0a0f;--s1:#13131a;--s2:#1c1c26;--b1:rgba(255,255,255,0.08);--b2:rgba(255,255,255,0.14);--tx:#f0f0f5;--mu:#7a7a9a;--ac:#7c6fff;--gn:#4ade80;--am:#fbbf24;--rd:#ff6b6b;--fn:'Syne',sans-serif;--mn:'DM Mono',monospace}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh}
+.ov{position:fixed;inset:0;background:rgba(10,10,15,0.97);z-index:100;display:flex;align-items:center;justify-content:center;padding:20px}
+.ov.hide{display:none}
+.card{background:var(--s1);border:1px solid var(--b2);border-radius:20px;padding:28px;width:100%;max-width:460px}
+.card-t{font-size:22px;font-weight:800;margin-bottom:6px}
+.card-s{font-size:13px;color:var(--mu);margin-bottom:20px;line-height:1.6}
+.lbl{font-size:11px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:7px;display:block}
+.inp{width:100%;padding:11px 14px;background:var(--s2);border:1px solid var(--b2);border-radius:10px;color:var(--tx);font-family:var(--fn);font-size:14px;outline:none;margin-bottom:14px;transition:border-color .2s}
+.inp:focus{border-color:var(--ac)}.inp::placeholder{color:var(--mu)}
+.hint{font-size:12px;color:var(--mu);padding:11px 13px;background:rgba(124,111,255,.08);border-radius:8px;line-height:1.7;margin-bottom:18px}
+.hint a{color:var(--ac);text-decoration:none}.hint a:hover{text-decoration:underline}
+.hint code{background:rgba(255,255,255,.08);padding:1px 5px;border-radius:4px;font-family:var(--mn);font-size:11px}
+.sz-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:18px}
+.sz{padding:14px 8px;background:var(--s2);border:1px solid var(--b2);border-radius:12px;text-align:center;cursor:pointer;transition:all .2s}
+.sz:hover{border-color:var(--ac)}.sz.sel{border-color:var(--ac);background:rgba(124,111,255,.12)}
+.sz-n{font-size:20px;font-weight:800;color:var(--ac)}.sz-l{font-size:11px;color:var(--mu);margin-top:2px}
+.rr{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:14px}
+.btn-go{width:100%;padding:13px;background:var(--ac);color:#fff;border:none;border-radius:10px;font-family:var(--fn);font-size:15px;font-weight:700;cursor:pointer;transition:all .2s}
+.btn-go:hover{background:#9580ff}
+.err{color:var(--rd);font-size:12px;margin-top:8px;display:none}
+/* layout */
+.layout{display:grid;grid-template-columns:300px 1fr;min-height:100vh}
+.sidebar{background:var(--s1);border-right:1px solid var(--b1);padding:22px 18px;display:flex;flex-direction:column;gap:16px;overflow-y:auto;height:100vh;position:sticky;top:0}
+.logo{font-size:17px;font-weight:800;letter-spacing:-.3px}.logo span{color:var(--ac)}
+.room-box{background:var(--s2);border:1px solid var(--b2);border-radius:14px;padding:14px}
+.room-lbl{font-size:10px;font-weight:700;letter-spacing:2px;color:var(--mu);text-transform:uppercase;margin-bottom:5px}
+.room-code{font-family:var(--mn);font-size:28px;font-weight:500;letter-spacing:5px;color:var(--ac);margin-bottom:10px}
+.qr-box{width:100%;background:#fff;border-radius:8px;overflow:hidden;line-height:0;min-height:80px;display:flex;align-items:center;justify-content:center}
+.qr-box img{width:100%;height:auto;display:block}
+.qr-spin{font-size:12px;color:#999;padding:20px}
+.qr-hint2{margin-top:7px;font-size:11px;color:var(--mu);text-align:center;line-height:1.5}
+.qr-url{margin-top:5px;font-size:9.5px;color:var(--ac);word-break:break-all;line-height:1.4;cursor:pointer;padding:6px 8px;background:rgba(124,111,255,.07);border-radius:6px;border:1px solid rgba(124,111,255,.2)}
+.qr-url:hover{background:rgba(124,111,255,.14)}
+.copy-tip{font-size:10px;color:var(--gn);margin-top:3px;text-align:center;display:none}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:6px}
+.stat{background:var(--s2);border:1px solid var(--b1);border-radius:10px;padding:9px 5px;text-align:center}
+.stat-n{font-size:20px;font-weight:700}
+.stat-n.ac{color:var(--ac)}.stat-n.gn{color:var(--gn)}.stat-n.am{color:var(--am)}
+.stat-l{font-size:9px;color:var(--mu);margin-top:1px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+.draw-box{background:linear-gradient(135deg,var(--ac),#a78bfa);border-radius:14px;padding:14px;text-align:center}
+.draw-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;opacity:.8;margin-bottom:3px}
+.draw-num{font-family:var(--mn);font-size:52px;font-weight:500;line-height:1}
+.draw-num.pop{animation:npop .4s ease}
+@keyframes npop{0%{transform:scale(1)}50%{transform:scale(1.2)}100%{transform:scale(1)}}
+.draw-acts{display:flex;gap:7px;margin-top:8px}
+.bd{flex:1;padding:10px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:9px;font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s}
+.bd:hover{background:rgba(255,255,255,.3)}
+.bd.ok{background:rgba(255,255,255,.9);color:#534AB7}.bd.ok:hover{background:#fff}
+.pool-box{background:var(--s2);border:1px solid var(--b2);border-radius:14px;padding:12px;display:flex;flex-direction:column;gap:7px}
+.pool-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mu)}
+.pool-inner{display:flex;flex-wrap:wrap;gap:4px;max-height:180px;overflow-y:auto}
+.pn{width:30px;height:30px;border-radius:7px;display:flex;align-items:center;justify-content:center;font-family:var(--mn);font-size:11px;font-weight:500;cursor:pointer;transition:all .12s;border:1px solid var(--b2);background:var(--s1);color:var(--tx)}
+.pn:hover{border-color:var(--ac);color:var(--ac)}
+.pn.drawn{opacity:.3;text-decoration:line-through;cursor:default;pointer-events:none;border-color:transparent;background:transparent}
+.pn.preview{background:rgba(124,111,255,.3);border-color:var(--ac);color:var(--ac);animation:blink .6s infinite alternate}
+@keyframes blink{from{opacity:1}to{opacity:.45}}
+.btn-util{padding:8px;background:transparent;color:var(--mu);border:1px solid var(--b2);border-radius:9px;font-family:var(--fn);font-size:12px;cursor:pointer;transition:all .2s;width:100%}
+.btn-util:hover{color:var(--tx);background:var(--s2)}
+/* main */
+.main-col{display:flex;flex-direction:column}
+.topbar{padding:16px 22px;border-bottom:1px solid var(--b1);display:flex;align-items:center;justify-content:space-between;background:var(--s1);position:sticky;top:0;z-index:10}
+.topbar-t{font-size:16px;font-weight:700}
+.pill{padding:4px 11px;border-radius:20px;font-size:11px;font-weight:700;letter-spacing:.5px}
+.pill.wait{background:rgba(251,191,36,.15);color:var(--am)}
+.pill.play{background:rgba(74,222,128,.15);color:var(--gn)}
+.pill.cfg{background:rgba(124,111,255,.15);color:var(--ac)}
+.main{padding:20px 22px;flex:1}
+.sec-lbl{font-size:10px;font-weight:700;letter-spacing:2px;text-transform:uppercase;color:var(--mu);margin-bottom:10px}
+.called-track{display:flex;flex-wrap:wrap;gap:5px;margin-bottom:22px;min-height:40px}
+.chip{width:36px;height:36px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-family:var(--mn);font-size:12px;font-weight:500;background:var(--s2);border:1px solid var(--b1);color:var(--mu)}
+.chip.latest{background:var(--ac);color:#fff;border-color:var(--ac);box-shadow:0 0 12px rgba(124,111,255,.4)}
+.pgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(170px,1fr));gap:10px}
+.pc{background:var(--s1);border:1px solid var(--b1);border-radius:14px;padding:13px;position:relative;overflow:hidden;transition:all .3s}
+.pc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--pc,var(--ac));border-radius:3px 3px 0 0}
+.pc.bingo{border-color:var(--gn);background:rgba(74,222,128,.04)}.pc.bingo::before{background:var(--gn)}
+.pc.filling{border-color:var(--am)}.pc.filling::before{background:var(--am)}
+.pc-top{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.pc-av{width:32px;height:32px;border-radius:8px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:12px;flex-shrink:0}
+.pc-name{font-size:13px;font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.pc-sub{font-size:11px;color:var(--mu)}
+.pc-lines{display:flex;flex-wrap:wrap;gap:4px;margin-bottom:7px}
+.lb{padding:3px 7px;border-radius:5px;font-size:10px;font-weight:700}
+.lb.r{background:rgba(74,222,128,.15);color:var(--gn)}
+.lb.c{background:rgba(56,189,248,.15);color:#38bdf8}
+.lb.d{background:rgba(251,191,36,.15);color:var(--am)}
+.lb.tot{background:rgba(124,111,255,.2);color:var(--ac);font-size:11px}
+.pc-bar{height:3px;background:var(--b2);border-radius:2px;overflow:hidden}
+.pc-fill{height:100%;border-radius:2px;transition:width .4s}
+.bdg{position:absolute;top:9px;right:9px;font-size:9px;font-weight:700;padding:2px 6px;border-radius:5px;letter-spacing:1px}
+.bdg.b{background:var(--gn);color:#0a0a0f}
+.bdg.f{background:var(--am);color:#0a0a0f}
+.empty{text-align:center;padding:40px 20px;color:var(--mu);font-size:13px;grid-column:1/-1;border:1px dashed var(--b2);border-radius:14px;line-height:2}
+.hide{display:none!important}
+@media(max-width:680px){.layout{grid-template-columns:1fr}.sidebar{height:auto;position:static}}
+</style>
+</head>
+<body>
+
+<!-- Step 1: Firebase -->
+<div class="ov" id="ov-fb">
+<div class="card">
+  <div class="card-t">178 TCC Bingo 主持人</div>
+  <div class="card-s">首次使用需設定 Firebase，之後會自動記住。</div>
+  <span class="lbl">Firebase Database URL</span>
+  <input class="inp" id="fb-url" placeholder="https://your-project-default-rtdb.firebaseio.com" type="text">
+  <div class="hint">
+    🔧 免費設定（只需一次）：<br>
+    1. 前往 <a href="https://console.firebase.google.com" target="_blank">console.firebase.google.com</a><br>
+    2. 建立新專案（免費，不需信用卡）<br>
+    3. 左側選單 → <strong>Realtime Database</strong> → 建立資料庫<br>
+    4. 選「<strong>測試模式</strong>」→ 完成<br>
+    5. 複製頁面上方的 Database URL 貼到上方<br>
+    <br>
+    ⚠️ 同時也需要在 Firebase Console → <strong>Authentication → 登入方式</strong> → 啟用「<strong>匿名</strong>」
+  </div>
+  <button class="btn-go" onclick="step1()">連線並開始</button>
+  <div class="err" id="e1"></div>
+</div>
+</div>
+
+<!-- Step 2: Game config -->
+<div class="ov hide" id="ov-cfg">
+<div class="card">
+  <div class="card-t">⚙️ 遊戲設定</div>
+  <div class="card-s">選擇賓果卡格數與號碼範圍</div>
+  <span class="lbl">賓果卡格數</span>
+  <div class="sz-grid">
+    <div class="sz sel" data-s="3" onclick="selSz(3)"><div class="sz-n">3×3</div><div class="sz-l">9格</div></div>
+    <div class="sz" data-s="4" onclick="selSz(4)"><div class="sz-n">4×4</div><div class="sz-l">16格</div></div>
+    <div class="sz" data-s="5" onclick="selSz(5)"><div class="sz-n">5×5</div><div class="sz-l">25格含FREE</div></div>
+  </div>
+  <span class="lbl">號碼範圍</span>
+  <div class="rr">
+    <div><span class="lbl" style="font-size:10px">最小值</span><input class="inp" id="r-min" type="number" value="1" min="1" style="margin-bottom:0"></div>
+    <div><span class="lbl" style="font-size:10px">最大值</span><input class="inp" id="r-max" type="number" value="30" min="2" style="margin-bottom:0"></div>
+  </div>
+  <div style="height:14px"></div>
+  <button class="btn-go" onclick="step2()">建立遊戲房間 →</button>
+  <div class="err" id="e2"></div>
+</div>
+</div>
+
+<!-- Main UI -->
+<div class="layout">
+  <aside class="sidebar">
+    <div class="logo">178 TCC<span>·</span>Bingo</div>
+    <div class="room-box">
+      <div class="room-lbl">房間代碼</div>
+      <div class="room-code" id="room-code">----</div>
+      <div class="qr-box" id="qr-box"><div class="qr-spin">等待建立房間...</div></div>
+      <div class="qr-hint2">手機掃描加入遊戲</div>
+      <div class="qr-url" id="qr-url" onclick="copyUrl()" title="點擊複製連結"></div>
+      <div class="copy-tip" id="copy-tip">✓ 連結已複製！</div>
+    </div>
+    <div class="stats">
+      <div class="stat"><div class="stat-n ac" id="s-p">0</div><div class="stat-l">玩家</div></div>
+      <div class="stat"><div class="stat-n am" id="s-c">0</div><div class="stat-l">已叫</div></div>
+      <div class="stat"><div class="stat-n gn" id="s-b">0</div><div class="stat-l">BINGO</div></div>
+    </div>
+    <div class="draw-box">
+      <div class="draw-lbl">目前號碼</div>
+      <div class="draw-num" id="draw-num">—</div>
+      <div class="draw-acts">
+        <button class="bd" id="btn-d" onclick="doPreview()">🎲 抽號</button>
+        <button class="bd ok hide" id="btn-ok" onclick="doConfirm()">✓ 確認</button>
+        <button class="bd hide" id="btn-x" onclick="doCancel()" style="flex:0;padding:10px 13px">✕</button>
+      </div>
+    </div>
+    <div class="pool-box">
+      <div class="pool-lbl">號碼池 <span id="pool-remain" style="color:var(--tx);font-family:var(--mn);font-size:12px"></span></div>
+      <div class="pool-inner" id="pool-inner"></div>
+    </div>
+    <button class="btn-util" onclick="newGame()">↺ 重新開始新遊戲</button>
+  </aside>
+
+  <div class="main-col">
+    <div class="topbar">
+      <div class="topbar-t">玩家總覽</div>
+      <div class="pill cfg" id="status-pill">設定中</div>
+    </div>
+    <div class="main">
+      <div class="sec-lbl">已叫出號碼（最新在前）</div>
+      <div class="called-track" id="called-track"><div style="color:var(--mu);font-size:12px;align-self:center">尚未開始叫號</div></div>
+      <div class="sec-lbl">玩家狀態</div>
+      <div class="pgrid" id="pgrid"><div class="empty">等待玩家掃 QR Code 加入...</div></div>
+    </div>
+  </div>
+</div>
+
+<script>
+const PC=['#7c6fff','#ff6b6b','#4ade80','#fbbf24','#38bdf8','#f472b6','#a78bfa','#34d399'];
+let db,roomCode,calledNums=[],preview=null,cfg={size:3,min:1,max:30},fbUrl='';
+
+async function step1(){
+  fbUrl=document.getElementById('fb-url').value.trim();
+  if(!fbUrl||!fbUrl.includes('firebaseio.com')){se('e1','請輸入有效的 Firebase URL（格式：https://xxx.firebaseio.com）');return}
+  const{initializeApp,getDatabase}=window._fb;
+  try{
+    const app=initializeApp({databaseURL:fbUrl},'bh'+Date.now());
+    db=getDatabase(app);
+    localStorage.setItem('bingo_fb',fbUrl);
+    hide('ov-fb');show('ov-cfg');
+  }catch(e){se('e1','連線失敗：'+e.message)}
+}
+
+function selSz(n){
+  document.querySelectorAll('.sz').forEach(el=>el.classList.toggle('sel',+el.dataset.s===n));
+  cfg.size=n;
+  const def={3:[1,30],4:[1,50],5:[1,75]};
+  document.getElementById('r-min').value=def[n][0];
+  document.getElementById('r-max').value=def[n][1];
+}
+
+async function step2(){
+  const min=+document.getElementById('r-min').value;
+  const max=+document.getElementById('r-max').value;
+  const sz=cfg.size;
+  const need=sz*sz-(sz===5?1:0);
+  if(min<1||max<=min||max-min+1<need){se('e2',`範圍至少需要 ${need} 個數字（目前 ${Math.max(0,max-min+1)} 個）`);return}
+  cfg={size:sz,min,max};
+  roomCode=Math.random().toString(36).substr(2,4).toUpperCase();
+  const{ref,set}=window._fb;
+  await set(ref(db,'rooms/'+roomCode),{config:cfg,calledNumbers:[],status:'waiting',players:{}});
+  hide('ov-cfg');
+  document.getElementById('room-code').textContent=roomCode;
+  buildPool();
+  makeQR();
+  listenGame();
+}
+
+function makeQR(){
+  // GitHub Pages URL: same origin, /repo-name/player.html
+  const base=location.href.split('?')[0].split('#')[0];
+  const playerUrl=base.replace(/\/host\.html$/,'/player.html').replace(/\/index\.html$/,'/player.html');
+  // Encode fb URL as hash so it's not sent to server
+  const joinUrl=playerUrl+'?room='+roomCode+'#fb='+encodeURIComponent(fbUrl);
+  window._purl=joinUrl;
+
+  // Show short URL
+  const urlEl=document.getElementById('qr-url');
+  const shortDisplay=joinUrl.replace(/https?:\/\//,'');
+  urlEl.textContent=shortDisplay.length>55?shortDisplay.slice(0,52)+'…':shortDisplay;
+
+  // QR image via api.qrserver.com
+  const img=new Image();
+  img.style.cssText='width:100%;height:auto;display:block';
+  img.onload=()=>{const b=document.getElementById('qr-box');b.innerHTML='';b.appendChild(img)};
+  img.onerror=()=>{document.getElementById('qr-box').innerHTML='<div class="qr-spin">⚠ QR載入失敗<br>請用下方連結</div>'};
+  img.src='https://api.qrserver.com/v1/create-qr-code/?size=270x270&margin=8&data='+encodeURIComponent(joinUrl);
+}
+
+function copyUrl(){
+  if(!window._purl)return;
+  navigator.clipboard.writeText(window._purl).then(()=>{
+    const t=document.getElementById('copy-tip');
+    t.style.display='block';setTimeout(()=>t.style.display='none',2500);
+  }).catch(()=>prompt('複製此連結：',window._purl));
+}
+
+function buildPool(){
+  const el=document.getElementById('pool-inner');
+  el.innerHTML='';
+  for(let n=cfg.min;n<=cfg.max;n++){
+    const d=document.createElement('div');
+    d.className='pn';d.id='pn-'+n;d.textContent=n;d.onclick=()=>manualPick(n);
+    el.appendChild(d);
+  }
+  updatePool();
+}
+
+function updatePool(){
+  const tot=cfg.max-cfg.min+1;
+  document.getElementById('pool-remain').textContent=(tot-calledNums.length)+'/'+tot;
+  for(let n=cfg.min;n<=cfg.max;n++){
+    const el=document.getElementById('pn-'+n);if(!el)continue;
+    if(calledNums.includes(n)){el.className='pn drawn';el.onclick=null}
+    else if(n===preview)el.className='pn preview';
+    else{el.className='pn';el.onclick=()=>manualPick(n)}
+  }
+}
+
+function doPreview(){
+  const av=[];for(let n=cfg.min;n<=cfg.max;n++)if(!calledNums.includes(n))av.push(n);
+  if(!av.length){alert('號碼池已用完！');return}
+  if(preview!==null)clearPrev();
+  preview=av[Math.floor(Math.random()*av.length)];showPrev();
+}
+function manualPick(n){if(calledNums.includes(n)||n===preview)return;if(preview!==null)clearPrev();preview=n;showPrev();}
+function showPrev(){
+  const el=document.getElementById('draw-num');
+  el.textContent=preview;el.classList.remove('pop');void el.offsetWidth;el.classList.add('pop');
+  document.getElementById('pn-'+preview).className='pn preview';
+  id('btn-d').classList.add('hide');id('btn-ok').classList.remove('hide');id('btn-x').classList.remove('hide');
+}
+function clearPrev(){
+  if(preview!==null&&!calledNums.includes(preview)){const e=document.getElementById('pn-'+preview);if(e){e.className='pn';e.onclick=()=>manualPick(preview)}}
+  preview=null;
+}
+async function doConfirm(){
+  if(preview===null)return;
+  const{ref,set}=window._fb;
+  await set(ref(db,'rooms/'+roomCode+'/calledNumbers'),[...calledNums,preview]);
+  await set(ref(db,'rooms/'+roomCode+'/status'),'playing');
+  preview=null;
+  id('btn-d').classList.remove('hide');id('btn-ok').classList.add('hide');id('btn-x').classList.add('hide');
+}
+function doCancel(){
+  clearPrev();updatePool();
+  id('draw-num').textContent=calledNums.length?calledNums[calledNums.length-1]:'—';
+  id('btn-d').classList.remove('hide');id('btn-ok').classList.add('hide');id('btn-x').classList.add('hide');
+}
+
+function listenGame(){
+  const{onValue,ref}=window._fb;
+  onValue(ref(db,'rooms/'+roomCode),snap=>{
+    const data=snap.val()||{};
+    calledNums=data.calledNumbers||[];
+    const players=Object.entries(data.players||{});
+    id('s-p').textContent=players.length;
+    id('s-c').textContent=calledNums.length;
+    id('s-b').textContent=players.filter(([,p])=>p.bingo).length;
+    const st=data.status||'waiting';
+    const pill=id('status-pill');
+    pill.className='pill '+(st==='playing'?'play':st==='waiting'?'wait':'cfg');
+    pill.textContent=st==='playing'?'遊戲進行中':st==='waiting'?'等待玩家填卡':'設定中';
+    if(calledNums.length&&preview===null)id('draw-num').textContent=calledNums[calledNums.length-1];
+    updatePool();renderCalled();renderPlayers(players,data.config||cfg);
+  });
+}
+
+function renderCalled(){
+  const el=id('called-track');
+  if(!calledNums.length){el.innerHTML='<div style="color:var(--mu);font-size:12px;align-self:center">尚未開始叫號</div>';return}
+  el.innerHTML=[...calledNums].reverse().map((n,i)=>`<div class="chip${i===0?' latest':''}">${n}</div>`).join('');
+}
+
+function countLines(card,gcfg){
+  if(!card||!card.length)return{rows:0,cols:0,diags:0,total:0};
+  const sz=gcfg.size;
+  const g=(r,c)=>card.find(x=>x.r===r&&x.c===c)?.marked||false;
+  let rows=0,cols=0,diags=0;
+  for(let i=0;i<sz;i++){
+    if(Array.from({length:sz},(_,j)=>g(i,j)).every(Boolean))rows++;
+    if(Array.from({length:sz},(_,j)=>g(j,i)).every(Boolean))cols++;
+  }
+  if(Array.from({length:sz},(_,i)=>g(i,i)).every(Boolean))diags++;
+  if(Array.from({length:sz},(_,i)=>g(i,sz-1-i)).every(Boolean))diags++;
+  return{rows,cols,diags,total:rows+cols+diags};
+}
+
+function renderPlayers(players,gcfg){
+  const el=id('pgrid');
+  if(!players.length){el.innerHTML='<div class="empty">等待玩家掃 QR Code 加入...</div>';return}
+  const sz=gcfg.size,total=sz*sz-(sz===5?1:0);
+  el.innerHTML=players.map(([,p],i)=>{
+    const color=PC[i%PC.length];
+    const init=(p.name||'?').slice(0,2).toUpperCase();
+    const filled=p.filled||0,marked=p.markedCount||0,ready=filled>=total;
+    const lines=countLines(p.card,gcfg);
+    const pct=Math.round(marked/total*100);
+    let badges='';
+    if(ready&&lines.total>0){
+      if(lines.rows)badges+=`<span class="lb r">橫${lines.rows}</span>`;
+      if(lines.cols)badges+=`<span class="lb c">縱${lines.cols}</span>`;
+      if(lines.diags)badges+=`<span class="lb d">斜${lines.diags}</span>`;
+      badges+=`<span class="lb tot">${lines.total}條</span>`;
+    }
+    const sdg=p.bingo?'<div class="bdg b">BINGO!</div>':!ready?`<div class="bdg f">填卡 ${filled}/${total}</div>`:'';
+    return`<div class="pc${p.bingo?' bingo':!ready?' filling':''}" style="--pc:${color}">
+      ${sdg}
+      <div class="pc-top">
+        <div class="pc-av" style="background:${color};color:#0a0a0f">${init}</div>
+        <div style="min-width:0"><div class="pc-name">${p.name||'玩家'}</div><div class="pc-sub">${p.bingo?'🎉 賓果！':ready?`標 ${marked}/${total}`:'填卡中…'}</div></div>
+      </div>
+      ${badges?`<div class="pc-lines">${badges}</div>`:''}
+      <div class="pc-bar"><div class="pc-fill" style="width:${pct}%;background:${color}"></div></div>
+    </div>`;
+  }).join('');
+}
+
+async function newGame(){
+  if(!db||!roomCode)return;
+  if(!confirm('確定重新開始？所有玩家需重新填卡。'))return;
+  const{ref,get,set}=window._fb;
+  const snap=await get(ref(db,'rooms/'+roomCode+'/players'));
+  const pl=snap.val()||{};const reset={};
+  Object.keys(pl).forEach(k=>{reset[k]={...pl[k],markedCount:0,bingo:false,filled:0,card:null,cardReset:Date.now()}});
+  await set(ref(db,'rooms/'+roomCode),{config:cfg,calledNumbers:[],status:'waiting',players:reset});
+  calledNums=[];preview=null;
+  id('draw-num').textContent='—';
+  id('btn-d').classList.remove('hide');id('btn-ok').classList.add('hide');id('btn-x').classList.add('hide');
+  buildPool();
+}
+
+function id(x){return document.getElementById(x)}
+function hide(x){id(x).classList.add('hide')}
+function show(x){id(x).classList.remove('hide')}
+function se(x,m){const e=id(x);e.style.display='block';e.textContent=m}
+
+const sv=localStorage.getItem('bingo_fb');
+if(sv)document.getElementById('fb-url').value=sv;
+</script>
+</body>
+</html>

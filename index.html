@@ -1,0 +1,42 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>178 TCC Bingo</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;700;800&display=swap');
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:#0a0a0f;color:#f0f0f5;font-family:'Syne',sans-serif;min-height:100vh;display:flex;align-items:center;justify-content:center;padding:24px}
+body::before{content:'';position:fixed;top:-150px;left:-150px;width:500px;height:500px;background:radial-gradient(circle,rgba(124,111,255,0.1) 0%,transparent 70%);pointer-events:none}
+body::after{content:'';position:fixed;bottom:-150px;right:-150px;width:400px;height:400px;background:radial-gradient(circle,rgba(74,222,128,0.07) 0%,transparent 70%);pointer-events:none}
+.wrap{width:100%;max-width:380px;position:relative;z-index:1;text-align:center}
+.title{font-size:36px;font-weight:800;letter-spacing:-1px;margin-bottom:4px}
+.title span{color:#7c6fff}
+.sub{font-size:14px;color:#7a7a9a;margin-bottom:40px;line-height:1.6}
+.btn{display:block;width:100%;padding:18px;border-radius:16px;font-family:'Syne',sans-serif;font-size:17px;font-weight:700;cursor:pointer;text-decoration:none;transition:all .2s;margin-bottom:12px;border:none}
+.btn-host{background:#7c6fff;color:#fff}
+.btn-host:hover{background:#9580ff;transform:translateY(-2px)}
+.btn-player{background:#13131a;color:#f0f0f5;border:1px solid rgba(255,255,255,0.14)}
+.btn-player:hover{background:#1c1c26;transform:translateY(-2px)}
+.btn-sub{font-size:13px;font-weight:400;color:#7a7a9a;margin-top:4px;display:block}
+.divider{display:flex;align-items:center;gap:12px;margin:8px 0 20px;color:#7a7a9a;font-size:12px}
+.divider::before,.divider::after{content:'';flex:1;height:1px;background:rgba(255,255,255,0.08)}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="title">178 TCC<span>·</span>Bingo</div>
+  <div class="sub">多人即時賓果遊戲</div>
+  <a href="host.html" class="btn btn-host">
+    🎯 主持人
+    <span class="btn-sub">建立房間、叫號、查看玩家進度</span>
+  </a>
+  <div class="divider">或</div>
+  <a href="player.html" class="btn btn-player">
+    📱 玩家加入
+    <span class="btn-sub">掃 QR Code 或直接點此加入</span>
+  </a>
+</div>
+</body>
+</html>
