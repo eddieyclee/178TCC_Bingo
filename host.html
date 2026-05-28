@@ -6,8 +6,8 @@
 <title>178 TCC Bingo 主持人</title>
 <script type="module">
   import{initializeApp}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
-  import{getDatabase,ref,set,get,onValue}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
-  window._fb={initializeApp,getDatabase,ref,set,get,onValue};
+  import{getDatabase,ref,set,get,onValue,remove}from"https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+  window._fb={initializeApp,getDatabase,ref,set,get,onValue,remove};
 </script>
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Syne:wght@400;500;600;700;800&family=DM+Mono:wght@400;500&display=swap');
@@ -140,6 +140,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
 .pc{cursor:pointer}
 .pc:hover{border-color:var(--b2);transform:translateY(-2px);box-shadow:0 4px 16px rgba(0,0,0,.3)}
 .pc-click-hint{font-size:10px;color:var(--mu);text-align:center;margin-top:6px;opacity:.6}
+
 
 .hide{display:none!important}
 @media(max-width:700px){.layout{grid-template-columns:1fr}.sidebar{height:auto;position:static}}
@@ -364,7 +365,7 @@ function renderPlayers(players,gcfg,isPlaying){
     return (b.markedCount||0)-(a.markedCount||0);
   });
 
-  el.innerHTML=sorted.map(([,p],i)=>{
+  el.innerHTML=sorted.map(([key,p],i)=>{p._key=key;
     const color=PC[i%PC.length];
     const init=(p.name||'?').slice(0,2).toUpperCase();
     const filled=p.filled||0;
@@ -395,7 +396,9 @@ function renderPlayers(players,gcfg,isPlaying){
       :ready?`已勾 ${marked}/${total} 格`:'填卡中…';
 
     const _pdata=encodeURIComponent(JSON.stringify({name:p.name,card:p.card||[],cfg:gcfg,lines,color}));
-    return`<div class="pc${p.bingo?' bingo':!ready?' filling':''}" style="--pc:${color}" data-pcard="${_pdata}" onclick="openCardModal(this)">
+    // p._key is the firebase key - we stored it below
+    const _pkey=encodeURIComponent(p._key||'');
+    return`<div class="pc${p.bingo?' bingo':!ready?' filling':''}" style="--pc:${color}" data-pcard="${_pdata}" data-pkey="${_pkey}" onclick="openCardModal(this)">
       ${topBadge}
       <div class="pc-head">
         <div class="pc-av" style="background:${color}">${init}</div>
@@ -426,6 +429,7 @@ async function newGame(){
 
 function openCardModal(el){
   const d=JSON.parse(decodeURIComponent(el.dataset.pcard));
+  window._modalPlayerKey=decodeURIComponent(el.dataset.pkey||"");
   const{name,card,cfg:gcfg,lines,color}=d;
   document.getElementById('modal-player-name').textContent=(name||'玩家')+'的賓果卡';
   // Lines info
@@ -463,6 +467,15 @@ function openCardModal(el){
 
 function closeCardModal(){
   document.getElementById('card-modal').classList.add('hide');
+  window._modalPlayerKey=null;
+}
+
+async function deletePlayer(playerKey,playerName){
+  if(!playerKey)return;
+  if(!confirm(`確定要移除「${playerName}」並讓他重新加入嗎？`))return;
+  const{ref,remove}=window._fb;
+  await remove(ref(db,'rooms/'+roomCode+'/players/'+playerKey));
+  closeCardModal();
 }
 
 function id(x){return document.getElementById(x)}
@@ -483,7 +496,8 @@ if(sv)document.getElementById('fb-url').value=sv;
     <div id="modal-lines-info" style="display:flex;flex-wrap:wrap;gap:6px;margin-bottom:14px"></div>
     <div class="prev-letters" id="modal-letters"></div>
     <div class="prev-grid" id="modal-grid"></div>
-    <div style="font-size:11px;color:var(--mu);text-align:center">綠色格子 = 玩家已確認標記</div>
+    <div style="font-size:11px;color:var(--mu);text-align:center;margin-bottom:14px">綠色格子 = 玩家已確認標記</div>
+    <button onclick="deletePlayer(window._modalPlayerKey,document.getElementById('modal-player-name').textContent.replace('的賓果卡',''))" style="width:100%;padding:11px;background:transparent;color:var(--rd);border:1px solid rgba(255,107,107,.3);border-radius:10px;font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s" onmouseover="this.style.background='rgba(255,107,107,.08)'" onmouseout="this.style.background='transparent'">🗑 移除此玩家，讓他重新加入</button>
   </div>
 </div>
 </body>

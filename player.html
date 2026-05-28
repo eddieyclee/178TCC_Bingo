@@ -257,6 +257,12 @@ window.doJoin=async()=>{
     const snap=await get(ref(db,'rooms/'+code));
     if(!snap.exists()){err.textContent='找不到此房間，請確認代碼';return}
     const data=snap.val();
+    // Block joining if game already started
+    if(data.status==='playing'){
+      err.textContent='遊戲已開始，無法加入此房間';
+      err.style.display='block';
+      return;
+    }
     cfg=data.config||cfg;
     roomCode=code;playerName=name;
     playerKey='p_'+Date.now()+'_'+Math.random().toString(36).substr(2,4);
