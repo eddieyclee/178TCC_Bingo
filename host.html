@@ -62,7 +62,11 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
 .stat-l{font-size:9px;color:var(--mu);margin-top:1px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
 
 /* New game button */
-.btn-newgame{padding:10px;background:transparent;color:var(--mu);border:1px solid var(--b2);border-radius:10px;font-family:var(--fn);font-size:12px;cursor:pointer;transition:all .2s;width:100%}
+.btn-start{padding:14px;background:var(--gn);color:#0a0a0f;border:none;border-radius:12px;font-family:var(--fn);font-size:15px;font-weight:800;cursor:pointer;transition:all .2s;width:100%;letter-spacing:.3px}
+.btn-start:hover{background:#6ee87a;transform:translateY(-1px)}
+.btn-start:active{transform:scale(.98)}
+.btn-start:disabled{opacity:.4;cursor:not-allowed;transform:none;background:var(--s2);color:var(--mu)}
+.btn-newgame{padding:9px;background:transparent;color:var(--mu);border:1px solid var(--b2);border-radius:10px;font-family:var(--fn);font-size:12px;cursor:pointer;transition:all .2s;width:100%}
 .btn-newgame:hover{color:var(--tx);background:var(--s2)}
 
 /* MAIN CONTENT */
@@ -180,6 +184,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
       <div class="stat"><div class="stat-n gn" id="s-b">0</div><div class="stat-l">BINGO</div></div>
     </div>
 
+    <button class="btn-start" id="btn-start" onclick="startGame()" disabled>▶ 開始遊戲</button>
     <button class="btn-newgame" onclick="newGame()">↺ 重新開始新遊戲</button>
   </aside>
 
@@ -260,6 +265,14 @@ function copyUrl(){
   }).catch(()=>prompt('複製此連結：',window._purl));
 }
 
+async function startGame(){
+  if(!db||!roomCode)return;
+  const{ref,set}=window._fb;
+  await set(ref(db,'rooms/'+roomCode+'/status'),'playing');
+  id('btn-start').disabled=true;
+  id('btn-start').textContent='✓ 遊戲進行中';
+}
+
 function listenGame(){
   const{onValue,ref}=window._fb;
   onValue(ref(db,'rooms/'+roomCode),snap=>{
@@ -267,21 +280,33 @@ function listenGame(){
     const players=Object.entries(data.players||{});
     const readyCount=players.filter(([,p])=>p.filled>0).length;
     const bingoCount=players.filter(([,p])=>p.bingo).length;
+    const st=data.status||'waiting';
+    const isPlaying=st==='playing';
 
     id('s-p').textContent=players.length;
     id('s-c').textContent=readyCount;
     id('s-b').textContent=bingoCount;
     id('player-count-lbl').textContent=players.length?players.length+'人':'';
 
-    const st=data.status||'waiting';
+    // Start button: enabled only if ≥1 player filled card AND not yet playing
+    const startBtn=id('btn-start');
+    if(isPlaying){
+      startBtn.disabled=true;
+      startBtn.textContent='✓ 遊戲進行中';
+    } else {
+      startBtn.disabled=readyCount===0;
+      startBtn.textContent=readyCount>0?`▶ 開始遊戲（${readyCount}人就緒）`:'▶ 開始遊戲';
+    }
+
     const pill=id('status-pill');
     const hasActivity=players.some(([,p])=>p.markedCount>0);
-    if(bingoCount>0){pill.className='pill play';pill.textContent='有人 BINGO！'}
-    else if(hasActivity){pill.className='pill play';pill.textContent='遊戲進行中'}
-    else if(readyCount>0){pill.className='pill wait';pill.textContent='等待開始'}
-    else{pill.className='pill cfg';pill.textContent='等待玩家加入'}
+    if(bingoCount>0){pill.className='pill play';pill.textContent='🎉 有人 BINGO！'}
+    else if(isPlaying&&hasActivity){pill.className='pill play';pill.textContent='遊戲進行中'}
+    else if(isPlaying){pill.className='pill play';pill.textContent='遊戲已開始'}
+    else if(readyCount>0){pill.className='pill wait';pill.textContent=`${readyCount}人就緒，等待開始`}
+    else{pill.className='pill cfg';pill.textContent='等待玩家填卡'}
 
-    renderPlayers(players,data.config||cfg);
+    renderPlayers(players,data.config||cfg,isPlaying);
   });
 }
 
@@ -299,7 +324,7 @@ function countLines(card,gcfg){
   return{rows,cols,diags,total:rows+cols+diags};
 }
 
-function renderPlayers(players,gcfg){
+function renderPlayers(players,gcfg,isPlaying){
   const el=id('pgrid');
   if(!players.length){
     el.innerHTML='<div class="empty-state"><strong>等待玩家加入</strong>請將 QR Code 分享給玩家掃描</div>';
@@ -335,7 +360,7 @@ function renderPlayers(players,gcfg){
     } else if(ready&&lines.total===0){
       lineBadges='<span class="lb none">尚未連線</span>';
     } else if(!ready){
-      lineBadges='<span class="lb none">填卡中…</span>';
+      lineBadges=isPlaying?'<span class="lb none">尚未連線</span>':'<span class="lb none">填卡中…</span>';
     }
 
     const topBadge=p.bingo
@@ -371,7 +396,7 @@ async function newGame(){
   const snap=await get(ref(db,'rooms/'+roomCode+'/players'));
   const pl=snap.val()||{};const reset={};
   Object.keys(pl).forEach(k=>{reset[k]={...pl[k],markedCount:0,bingo:false,filled:0,card:null,cardReset:Date.now()}});
-  await set(ref(db,'rooms/'+roomCode),{config:cfg,status:'waiting',players:reset});
+  await set(ref(db,'rooms/'+roomCode),{config:cfg,status:'waiting',players:reset});id('btn-start').disabled=true;id('btn-start').textContent='▶ 開始遊戲';
 }
 
 function id(x){return document.getElementById(x)}
