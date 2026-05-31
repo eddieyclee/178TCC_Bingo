@@ -78,6 +78,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
 
 /* WAIT */
 #s-wait{align-items:center;justify-content:center;padding:24px;text-align:center}
+#s-paused{align-items:center;justify-content:center;padding:24px;text-align:center}
 .wait-emoji{font-size:52px;margin-bottom:14px;animation:bob 2s infinite}
 @keyframes bob{0%,100%{transform:translateY(0)}50%{transform:translateY(-8px)}}
 .wait-t{font-size:20px;font-weight:700;margin-bottom:8px}
@@ -178,6 +179,16 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
   <div class="wait-s">你的賓果卡已提交完成<br>等待主持人按下「開始遊戲」</div>
 </div>
 
+<!-- PAUSED -->
+<div class="screen" id="s-paused">
+  <div class="wait-emoji">⏸</div>
+  <div class="wait-t">遊戲暫停中</div>
+  <div class="room-badge" id="p-room-code">----</div>
+  <div class="wait-s" style="margin-bottom:20px">主持人已暫停遊戲<br>你可以重新整理頁面後用相同名字加入</div>
+  <button class="btn" style="max-width:280px;background:var(--ac)" onclick="rejoinGame()">🔄 重新加入遊戲</button>
+  <div class="err" id="rejoin-err" style="margin-top:10px"></div>
+</div>
+
 <!-- GAME -->
 <div class="screen" id="s-game">
   <div class="gtop">
@@ -257,9 +268,56 @@ window.doJoin=async()=>{
     const snap=await get(ref(db,'rooms/'+code));
     if(!snap.exists()){err.textContent='找不到此房間，請確認代碼';return}
     const data=snap.val();
-    // Block joining if game already started
+    // Block joining if game is playing (not paused)
     if(data.status==='playing'){
+      // Allow if same name already exists (reconnecting)
+      const players=data.players||{};
+      const existing=Object.entries(players).find(([,p])=>p.name===name);
+      if(existing){
+        // Reconnect: reuse existing player key and card
+        const[key,p]=existing;
+        playerKey=key;cfg=data.config||cfg;
+        if(p.card&&p.card.length>0){
+          playerCard=p.card.map(c=>({...c,note:c.note||'',locked:c.locked||false}));
+          gameLoaded=false;
+        }
+        document.getElementById('w-code').textContent=code;
+        document.getElementById('g-name').textContent=name;
+        document.getElementById('g-room').textContent='ROOM: '+code;
+        roomCode=code;playerName=name;
+        window._lastBingoLines=0;
+        buildGameGrid();go('s-game');
+        listenRoom();
+        err.style.display='none';
+        return;
+      }
       err.textContent='遊戲已開始，無法加入此房間';
+      err.style.display='block';
+      return;
+    }
+    if(data.status==='paused'){
+      // Allow re-joining during pause (match by name)
+      const players=data.players||{};
+      const existing=Object.entries(players).find(([,p])=>p.name===name);
+      if(existing){
+        const[key,p]=existing;
+        playerKey=key;cfg=data.config||cfg;
+        if(p.card&&p.card.length>0){
+          playerCard=p.card.map(c=>({...c,note:c.note||'',locked:c.locked||false}));
+          gameLoaded=false;
+        }
+        document.getElementById('w-code').textContent=code;
+        document.getElementById('g-name').textContent=name;
+        document.getElementById('g-room').textContent='ROOM: '+code;
+        document.getElementById('p-room-code').textContent=code;
+        roomCode=code;playerName=name;
+        window._lastBingoLines=0;
+        go('s-paused');
+        listenRoom();
+        err.style.display='none';
+        return;
+      }
+      err.textContent='遊戲暫停中，僅限原本的玩家重新加入';
       err.style.display='block';
       return;
     }
@@ -339,26 +397,85 @@ function listenRoom(){
     const data=snap.val()||{};
     const called=data.calledNumbers||[];
     const me=data.players?.[playerKey];
-    if(!me)return;
+    const st=data.status||'waiting';
+
+    // If player was removed (no longer in players list), go back to join
+    if(!me){
+      // Don't react if we haven't joined yet
+      if(roomCode&&gameLoaded)go('s-join');
+      return;
+    }
+
+    // Card reset by host
     if(me.cardReset&&me.cardReset!==window._lastReset){
       window._lastReset=me.cardReset;cfg=data.config||cfg;
       playerCard=[];gameLoaded=false;lastCalledLen=0;window._lastBingoLines=0;buildFillCard();go('s-fill');return;
     }
-    if((data.status==='playing')&&me.card&&me.card.length>0){
+
+    // Paused: show paused screen (keep card state)
+    if(st==='paused'){
+      document.getElementById('p-room-code').textContent=roomCode;
+      // Only switch to paused screen if currently in game
+      const cur=document.querySelector('.screen.on')?.id;
+      if(cur==='s-game'||cur==='s-bingo')go('s-paused');
+      return;
+    }
+
+    // Playing
+    if(st==='playing'&&me.card&&me.card.length>0){
       if(!gameLoaded){
         gameLoaded=true;
         playerCard=me.card.map(c=>({...c,note:c.note||"",locked:c.locked||false}));
-        // 不自動標記，保留玩家自己勾選的狀態
         lastCalledLen=called.length;
         buildGameGrid();go('s-game');
-      } else if(called.length>lastCalledLen){
-        processNewNums(called.slice(lastCalledLen));
-        lastCalledLen=called.length;
+      } else {
+        // If coming back from paused screen, resume game
+        const cur=document.querySelector('.screen.on')?.id;
+        if(cur==='s-paused')go('s-game');
+        if(called.length>lastCalledLen){
+          processNewNums(called.slice(lastCalledLen));
+          lastCalledLen=called.length;
+        }
       }
     }
-
   });
 }
+
+// Re-join after page reload during pause or disconnect
+window.rejoinGame=async()=>{
+  const err=document.getElementById('rejoin-err');
+  if(!db){err.textContent='Firebase 未連線，請重新整理頁面';err.style.display='block';return}
+  if(!roomCode||!playerName){
+    // Redirect to join screen with pre-filled code
+    go('s-join');
+    return;
+  }
+  err.textContent='重新連線中...';err.style.display='block';
+  try{
+    const snap=await get(ref(db,'rooms/'+roomCode));
+    if(!snap.exists()){err.textContent='房間不存在';return}
+    const data=snap.val();
+    // Find existing player by name
+    const players=data.players||{};
+    const match=Object.entries(players).find(([,p])=>p.name===playerName);
+    if(match){
+      const[key,p]=match;
+      playerKey=key;
+      cfg=data.config||cfg;
+      if(p.card&&p.card.length>0){
+        playerCard=p.card.map(c=>({...c,note:c.note||'',locked:c.locked||false}));
+        gameLoaded=false; // will re-enter game on next listen
+      }
+      document.getElementById('g-name').textContent=playerName;
+      document.getElementById('g-room').textContent='ROOM: '+roomCode;
+      err.style.display='none';
+      if(data.status==='paused'){go('s-paused');}
+      else if(data.status==='playing'){buildGameGrid();go('s-game');}
+    } else {
+      err.textContent='找不到你的資料，請回到加入頁面重新輸入';
+    }
+  }catch(e){err.textContent='重新連線失敗：'+e.message}
+};
 
 function buildGameGrid(){
   const{size}=cfg;const LETTERS=['B','I','N','G','O'];

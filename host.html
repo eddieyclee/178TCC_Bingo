@@ -66,6 +66,10 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
 .btn-start:hover{background:#6ee87a;transform:translateY(-1px)}
 .btn-start:active{transform:scale(.98)}
 .btn-start:disabled{opacity:.4;cursor:not-allowed;transform:none;background:var(--s2);color:var(--mu)}
+.btn-pause{padding:11px;background:transparent;color:var(--am);border:1px solid rgba(251,191,36,.35);border-radius:10px;font-family:var(--fn);font-size:13px;font-weight:700;cursor:pointer;transition:all .2s;width:100%;display:none}
+.btn-pause:hover{background:rgba(251,191,36,.08)}
+.btn-pause.resume{color:var(--gn);border-color:rgba(74,222,128,.35)}
+.btn-pause.resume:hover{background:rgba(74,222,128,.08)}
 .btn-newgame{padding:9px;background:transparent;color:var(--mu);border:1px solid var(--b2);border-radius:10px;font-family:var(--fn);font-size:12px;cursor:pointer;transition:all .2s;width:100%}
 .btn-newgame:hover{color:var(--tx);background:var(--s2)}
 
@@ -88,8 +92,9 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
 .pc::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--pc,var(--ac));border-radius:3px 3px 0 0}
 .pc.bingo{border-color:var(--gn);background:rgba(74,222,128,.05)}.pc.bingo::before{background:var(--gn)}
 .pc.filling{border-color:var(--am)}.pc.filling::before{background:var(--am)}
+.pc.fullcard{border-color:#fbbf24;background:rgba(251,191,36,.05)}.pc.fullcard::before{background:linear-gradient(90deg,#fbbf24,#f59e0b)}
 
-.pc-head{display:flex;align-items:center;gap:10px;margin-bottom:12px}
+.pc-head{display:flex;align-items:center;gap:10px;margin-bottom:12px;padding-left:22px}
 .pc-av{width:36px;height:36px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:13px;flex-shrink:0;color:#0a0a0f}
 .pc-info{min-width:0;flex:1}
 .pc-name{font-size:14px;font-weight:700;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -114,6 +119,12 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
 .bdg{position:absolute;top:10px;right:10px;font-size:9px;font-weight:800;padding:3px 7px;border-radius:5px;letter-spacing:1px}
 .bdg.b{background:var(--gn);color:#0a0a0f}
 .bdg.f{background:var(--am);color:#0a0a0f}
+.bdg.full{background:linear-gradient(90deg,#fbbf24,#f59e0b);color:#0a0a0f}
+.rank-badge{position:absolute;top:10px;left:10px;width:22px;height:22px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:800;color:#0a0a0f}
+.rank-1{background:linear-gradient(135deg,#ffd700,#ffa500)}
+.rank-2{background:linear-gradient(135deg,#c0c0c0,#909090)}
+.rank-3{background:linear-gradient(135deg,#cd7f32,#a0522d)}
+.rank-other{background:var(--s2);color:var(--mu);border:1px solid var(--b2)}
 
 .empty-state{text-align:center;padding:60px 24px;color:var(--mu);font-size:14px;grid-column:1/-1;border:1px dashed var(--b2);border-radius:16px;line-height:2.2}
 .empty-state strong{color:var(--tx);display:block;font-size:18px;margin-bottom:6px}
@@ -209,6 +220,7 @@ body{background:var(--bg);color:var(--tx);font-family:var(--fn);min-height:100vh
     </div>
 
     <button class="btn-start" id="btn-start" onclick="startGame()" disabled>▶ 開始遊戲</button>
+    <button class="btn-pause" id="btn-pause" onclick="togglePause()">⏸ 暫停（允許玩家重新加入）</button>
     <button class="btn-newgame" onclick="newGame()">↺ 重新開始新遊戲</button>
   </aside>
 
@@ -295,6 +307,19 @@ async function startGame(){
   await set(ref(db,'rooms/'+roomCode+'/status'),'playing');
   id('btn-start').disabled=true;
   id('btn-start').textContent='✓ 遊戲進行中';
+  id('btn-pause').style.display='block';
+}
+
+async function togglePause(){
+  if(!db||!roomCode)return;
+  const{ref,get,set}=window._fb;
+  const snap=await get(ref(db,'rooms/'+roomCode+'/status'));
+  const cur=snap.val();
+  if(cur==='playing'){
+    await set(ref(db,'rooms/'+roomCode+'/status'),'paused');
+  } else if(cur==='paused'){
+    await set(ref(db,'rooms/'+roomCode+'/status'),'playing');
+  }
 }
 
 function listenGame(){
@@ -306,31 +331,44 @@ function listenGame(){
     const bingoCount=players.filter(([,p])=>p.bingo).length;
     const st=data.status||'waiting';
     const isPlaying=st==='playing';
+    const isPaused=st==='paused';
 
     id('s-p').textContent=players.length;
     id('s-c').textContent=readyCount;
     id('s-b').textContent=bingoCount;
     id('player-count-lbl').textContent=players.length?players.length+'人':'';
 
-    // Start button: enabled only if ≥1 player filled card AND not yet playing
+    // Start button
     const startBtn=id('btn-start');
-    if(isPlaying){
+    const pauseBtn=id('btn-pause');
+    if(isPlaying||isPaused){
       startBtn.disabled=true;
       startBtn.textContent='✓ 遊戲進行中';
+      pauseBtn.style.display='block';
     } else {
       startBtn.disabled=readyCount===0;
       startBtn.textContent=readyCount>0?`▶ 開始遊戲（${readyCount}人就緒）`:'▶ 開始遊戲';
+      pauseBtn.style.display='none';
+    }
+    // Pause button label
+    if(isPaused){
+      pauseBtn.className='btn-pause resume';
+      pauseBtn.textContent='▶ 繼續遊戲';
+    } else {
+      pauseBtn.className='btn-pause';
+      pauseBtn.textContent='⏸ 暫停（允許玩家重新加入）';
     }
 
     const pill=id('status-pill');
     const hasActivity=players.some(([,p])=>p.markedCount>0);
-    if(bingoCount>0){pill.className='pill play';pill.textContent='🎉 有人 BINGO！'}
+    if(bingoCount>0&&isPlaying){pill.className='pill play';pill.textContent='🎉 有人 BINGO！'}
+    else if(isPaused){pill.className='pill wait';pill.textContent='⏸ 遊戲暫停中'}
     else if(isPlaying&&hasActivity){pill.className='pill play';pill.textContent='遊戲進行中'}
     else if(isPlaying){pill.className='pill play';pill.textContent='遊戲已開始'}
     else if(readyCount>0){pill.className='pill wait';pill.textContent=`${readyCount}人就緒，等待開始`}
     else{pill.className='pill cfg';pill.textContent='等待玩家填卡'}
 
-    renderPlayers(players,data.config||cfg,isPlaying);
+    renderPlayers(players,data.config||cfg,isPlaying||isPaused);
   });
 }
 
@@ -355,14 +393,20 @@ function renderPlayers(players,gcfg,isPlaying){
     return;
   }
   const sz=gcfg.size,total=sz*sz;
-  // Sort: bingo first, then by lines desc, then by marked desc
+  // Sort: full-card > bingo > lines > marked
   const sorted=[...players].sort(([,a],[,b])=>{
+    const fullA=a.markedCount>=total&&a.filled>=total;
+    const fullB=b.markedCount>=total&&b.filled>=total;
+    if(fullB&&!fullA)return 1;
+    if(fullA&&!fullB)return -1;
+    if(fullA&&fullB)return (a.joinedAt||0)-(b.joinedAt||0);
     if(b.bingo&&!a.bingo)return 1;
     if(a.bingo&&!b.bingo)return -1;
     const la=countLines(a.card,gcfg).total;
     const lb=countLines(b.card,gcfg).total;
     if(lb!==la)return lb-la;
-    return (b.markedCount||0)-(a.markedCount||0);
+    if((b.markedCount||0)!==(a.markedCount||0))return (b.markedCount||0)-(a.markedCount||0);
+    return (b.filled>=total?1:0)-(a.filled>=total?1:0);
   });
 
   el.innerHTML=sorted.map(([key,p],i)=>{p._key=key;
@@ -387,9 +431,15 @@ function renderPlayers(players,gcfg,isPlaying){
       lineBadges=isPlaying?'<span class="lb none">尚未連線</span>':'<span class="lb none">填卡中…</span>';
     }
 
-    const topBadge=p.bingo
-      ?'<div class="bdg b">🎉 BINGO!</div>'
-      :!ready?`<div class="bdg f">填卡 ${filled}/${total}</div>`:'';
+    const isFull=marked>=total&&ready;
+    const rankN=i+1;
+    const rankCls=rankN===1?'rank-1':rankN===2?'rank-2':rankN===3?'rank-3':'rank-other';
+    const rankBadge=`<div class="rank-badge ${rankCls}">${rankN}</div>`;
+    const topBadge=isFull
+      ?'<div class="bdg full">🏆 全格完成！</div>'
+      :p.bingo
+        ?'<div class="bdg b">🎉 BINGO!</div>'
+        :!ready?`<div class="bdg f">填卡 ${filled}/${total}</div>`:'';
 
     const statusText=p.bingo
       ?'賓果完成！'
@@ -398,7 +448,8 @@ function renderPlayers(players,gcfg,isPlaying){
     const _pdata=encodeURIComponent(JSON.stringify({name:p.name,card:p.card||[],cfg:gcfg,lines,color}));
     // p._key is the firebase key - we stored it below
     const _pkey=encodeURIComponent(p._key||'');
-    return`<div class="pc${p.bingo?' bingo':!ready?' filling':''}" style="--pc:${color}" data-pcard="${_pdata}" data-pkey="${_pkey}" onclick="openCardModal(this)">
+    return`<div class="pc${isFull?' fullcard':p.bingo?' bingo':!ready?' filling':''}" style="--pc:${color}" data-pcard="${_pdata}" data-pkey="${_pkey}" onclick="openCardModal(this)">
+      ${rankBadge}
       ${topBadge}
       <div class="pc-head">
         <div class="pc-av" style="background:${color}">${init}</div>
